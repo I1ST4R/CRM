@@ -1,67 +1,76 @@
 (function($) {
     'use strict';
     
-    function updateItemTotal(productId, quantity, totalField) {
-        if (!productId || !quantity) {
-            totalField.text('0.00');
-            return;
-        }
-
-        $.ajax({
-            url: `/core/api/product/${productId}/price/`,
-            method: 'GET',
-            success: function(response) {
-                if (response && response.price) {
-                    const price = parseFloat(response.price);
-                    const total = price * quantity;
-                    totalField.text(total.toFixed(2));
-                    updateOrderTotal();
-                } else {
-                    totalField.text('0.00');
-                    updateOrderTotal();
-                }
-            },
-            error: function() {
-                totalField.text('0.00');
+    function updateItemTotal(row) {
+        var productSelect = row.find('select[id$="-product"]');
+        var productId = productSelect.val();
+        var quantity = parseInt(row.find('input[id$="-quantity"]').val()) || 0;
+        
+        console.log('Row:', row);
+        console.log('Product ID:', productId);
+        console.log('Quantity:', quantity);
+        
+        if (productId) {
+            $.get(`/core/api/product/${productId}/price/`, function(data) {
+                console.log('Price from API:', data.price);
+                var total = data.price * quantity;
+                console.log('Total:', total);
+                var totalField = row.find('.field-get_item_total');
+                console.log('Total field:', totalField);
+                totalField.text(total.toFixed(2));
                 updateOrderTotal();
-            }
-        });
+            });
+        } else {
+            row.find('.field-get_item_total').text('0.00');
+            updateOrderTotal();
+        }
     }
 
     function updateOrderTotal() {
-        let total = 0;
-        $('td.field-get_item_total').each(function() {
-            const value = parseFloat($(this).text()) || 0;
-            total += value;
+        var total = 0;
+        $('.field-get_item_total').each(function() {
+            total += parseFloat($(this).text()) || 0;
         });
-        $('#id_total_amount').val(total.toFixed(2));
+        console.log('Order total:', total);
+        // Добавляем или обновляем блок с итоговой суммой
+        if ($('#order-total').length === 0) {
+            $('.form-row:first').after(
+                '<div class="form-row" id="order-total">' +
+                '<div class="field-box">' +
+                '<label>Итоговая сумма заказа:</label>' +
+                '<div class="readonly">' + total.toFixed(2) + '</div>' +
+                '</div>' +
+                '</div>'
+            );
+        } else {
+            $('#order-total .readonly').text(total.toFixed(2));
+        }
     }
 
-    $(document).ready(function() {
-        // Обработчик изменения продукта
+    django.jQuery(document).ready(function($) {
+        console.log('Document ready');
+        // Обработчик изменения товара
         $(document).on('change', 'select[id$="-product"]', function() {
-            const productId = $(this).val();
-            const row = $(this).closest('tr');
-            const quantity = row.find('input[id$="-quantity"]').val() || 0;
-            const totalField = row.find('td.field-get_item_total');
-            updateItemTotal(productId, quantity, totalField);
+            console.log('Product changed');
+            updateItemTotal($(this).closest('tr'));
         });
 
         // Обработчик изменения количества
         $(document).on('change', 'input[id$="-quantity"]', function() {
-            const quantity = $(this).val() || 0;
-            const row = $(this).closest('tr');
-            const productId = row.find('select[id$="-product"]').val();
-            const totalField = row.find('td.field-get_item_total');
-            updateItemTotal(productId, quantity, totalField);
+            console.log('Quantity changed');
+            updateItemTotal($(this).closest('tr'));
         });
 
         // Обработчик удаления строки
         $(document).on('click', '.inline-deletelink', function() {
+            console.log('Row deleted');
             setTimeout(updateOrderTotal, 100);
         });
 
         // Инициализация при загрузке страницы
-        updateOrderTotal();
+        $('.inline-related').each(function() {
+            console.log('Initializing row');
+            updateItemTotal($(this));
+        });
     });
-})(jQuery); 
+})(django.jQuery); 

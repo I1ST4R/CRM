@@ -37,15 +37,24 @@ class Order(models.Model):
         ('new', 'Новый'),
         ('in_progress', 'В работе'),
         ('completed', 'Выполнен'),
-        ('cancelled', 'Отменен'),
+        ('cancelled', 'Отменен')
     ]
 
     date = models.DateField(verbose_name="Дата заказа")
     client = models.ForeignKey(Client, on_delete=models.CASCADE, verbose_name="Клиент")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new', verbose_name="Статус")
-    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Итоговая сумма")
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Итоговая сумма", editable=False)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="Менеджер", editable=False)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Пересчитываем сумму заказа
+        total = sum(item.price * item.quantity for item in self.items.all())
+        if self.total_amount != total:
+            self.total_amount = total
+            super().save(update_fields=['total_amount'])
 
     class Meta:
         verbose_name = "Заказ"
@@ -56,10 +65,14 @@ class Order(models.Model):
         return f"Заказ {self.id} от {self.date}"
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, verbose_name='Заказ')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Товар')
-    quantity = models.PositiveIntegerField(default=1, verbose_name='Количество')
-    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Цена', editable=False)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items', verbose_name="Заказ")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name="Товар")
+    quantity = models.PositiveIntegerField(verbose_name="Количество")
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена за 1 шт.")
+
+    def get_item_total(self):
+        return self.price * self.quantity
+    get_item_total.short_description = 'Сумма'
 
     def __str__(self):
         return f'{self.product.name} x {self.quantity}'
@@ -74,5 +87,5 @@ class OrderItem(models.Model):
         return self.price * self.quantity
 
     class Meta:
-        verbose_name = 'Позиция заказа'
-        verbose_name_plural = 'Позиции заказа'
+        verbose_name = "Товар в заказе"
+        verbose_name_plural = "Товары в заказе"

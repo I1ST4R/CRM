@@ -1,0 +1,39 @@
+from django import forms
+from .models import Order
+
+class OrderAdminForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = ['date', 'client', 'status']
+
+class OrderEditForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = ['status']
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = kwargs.get('instance')
+        
+        if instance:
+            current_status = instance.status
+            if current_status == 'new':
+                # Если статус "Новый", можно выбрать только "В работе" или "Отменен"
+                self.fields['status'].choices = [
+                    ('new', 'Новый'),
+                    ('in_progress', 'В работе'),
+                    ('cancelled', 'Отменен')
+                ]
+            elif current_status == 'in_progress':
+                # Если статус "В работе", можно выбрать только "Выполнен" или "Отменен"
+                self.fields['status'].choices = [
+                    ('in_progress', 'В работе'),
+                    ('completed', 'Выполнен'),
+                    ('cancelled', 'Отменен')
+                ]
+            elif current_status == 'cancelled':
+                # Если статус "Отменен", нельзя менять
+                self.fields['status'].widget.attrs['disabled'] = True
+            elif current_status == 'completed':
+                # Если статус "Выполнен", нельзя менять
+                self.fields['status'].widget.attrs['disabled'] = True 
