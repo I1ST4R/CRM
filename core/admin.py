@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.forms import UserCreationForm
 from django import forms
-from django.utils.html import format_html
+from django.utils.html import format_html, strip_tags
 from .models import Client, Product, Order, OrderItem
 from .permissions import create_groups
 
@@ -82,8 +82,33 @@ class ClientAdmin(admin.ModelAdmin):
             return True
         return request.user.groups.filter(name__in=['Администраторы', 'Менеджеры']).exists()
 
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = '__all__'
+
+    def clean_price(self):
+        price = self.cleaned_data.get('price')
+        if price < 0:
+            raise forms.ValidationError('Цена не может быть отрицательной')
+        return price
+
+    def clean_stock(self):
+        stock = self.cleaned_data.get('stock')
+        if stock < 0:
+            raise forms.ValidationError('Количество товара не может быть отрицательным')
+        return stock
+
+    def clean_description(self):
+        description = self.cleaned_data.get('description')
+        if description:
+            # Удаляем все HTML теги
+            description = strip_tags(description)
+        return description
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
+    form = ProductForm
     list_display = ('name', 'price', 'stock', 'created_at', 'get_description')
     search_fields = ('name', 'description')
     list_filter = ('created_at',)
@@ -93,7 +118,7 @@ class ProductAdmin(admin.ModelAdmin):
         }),
         ('Описание', {
             'fields': ('description',),
-            'description': 'Подробное описание товара. Можно использовать HTML-теги для форматирования.'
+            'description': 'Подробное описание товара.'
         }),
     )
 
