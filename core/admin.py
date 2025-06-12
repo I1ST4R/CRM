@@ -30,10 +30,10 @@ class OrderItemInline(admin.TabularInline):
     readonly_fields = ('get_item_total',)
 
     def get_item_total(self, obj):
-        if obj.pk:
-            return obj.price * obj.quantity
-        return ''
-    get_item_total.short_description = 'Сумма'
+        if obj.id:  # Если это существующий объект
+            return f"{obj.get_total():.2f} ₽"
+        return '0.00 ₽'  # Для новых объектов
+    get_item_total.short_description = 'Итого'
 
     class Media:
         js = ('admin/js/order_item.js',)
@@ -47,13 +47,16 @@ class ReadOnlyOrderItemInline(admin.TabularInline):
     readonly_fields = ('product', 'quantity', 'get_item_total')
 
     def get_item_total(self, obj):
-        if obj.pk:
-            return obj.price * obj.quantity
-        return ''
-    get_item_total.short_description = 'Сумма'
+        if obj.id:  # Если это существующий объект
+            return f"{obj.get_total():.2f} ₽"
+        return '0.00 ₽'  # Для новых объектов
+    get_item_total.short_description = 'Итого'
 
     def has_add_permission(self, request, obj=None):
         return False
+
+    class Media:
+        js = ()  # Отключаем JavaScript для просмотра заказа
 
 class UserAdmin(BaseUserAdmin):
     add_form = CustomUserCreationForm

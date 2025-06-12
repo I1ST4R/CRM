@@ -66,25 +66,20 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items', verbose_name="Заказ")
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name="Товар")
-    quantity = models.PositiveIntegerField(verbose_name="Количество")
-    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена за 1 шт.")
-
-    def get_item_total(self):
-        return self.price * self.quantity
-    get_item_total.short_description = 'Сумма'
-
-    def __str__(self):
-        return f'{self.product.name} x {self.quantity}'
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name="Товар")
+    quantity = models.PositiveIntegerField(default=1, verbose_name="Количество")
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
 
     def save(self, *args, **kwargs):
         if not self.price and self.product_id:
             self.price = self.product.price
         super().save(*args, **kwargs)
 
-    @property
-    def total(self):
+    def get_total(self):
         return self.price * self.quantity
+
+    def __str__(self):
+        return f"{self.product.name} - {self.quantity} шт."
 
     class Meta:
         verbose_name = "Товар в заказе"
