@@ -30,10 +30,13 @@ class OrderItemInline(admin.TabularInline):
     readonly_fields = ('get_item_total',)
 
     def get_item_total(self, obj):
-        if obj.pk and obj.product:
-            return obj.product.price * obj.quantity
+        if obj.pk:
+            return obj.price * obj.quantity
         return ''
     get_item_total.short_description = 'Сумма'
+
+    class Media:
+        js = ('admin/js/order_item.js',)
 
 class ReadOnlyOrderItemInline(admin.TabularInline):
     model = OrderItem
@@ -44,8 +47,8 @@ class ReadOnlyOrderItemInline(admin.TabularInline):
     readonly_fields = ('product', 'quantity', 'get_item_total')
 
     def get_item_total(self, obj):
-        if obj.pk and obj.product:
-            return obj.product.price * obj.quantity
+        if obj.pk:
+            return obj.price * obj.quantity
         return ''
     get_item_total.short_description = 'Сумма'
 
@@ -179,9 +182,9 @@ class OrderAdminForm(forms.ModelForm):
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     form = OrderAdminForm
-    list_display = ('id', 'date', 'client', 'status', 'get_total_amount', 'created_at')
-    list_filter = ('status', 'date', 'client')
-    search_fields = ('id', 'client__name')
+    list_display = ('id', 'date', 'client', 'status', 'get_total_amount', 'created_by', 'created_at')
+    list_filter = ('status', 'date', 'client', 'created_by')
+    search_fields = ('id', 'client__name', 'created_by__username')
     date_hierarchy = 'date'
     inlines = [OrderItemInline]
     readonly_fields = ('created_at', 'updated_at', 'date', 'client', 'get_total_amount', 'created_by')
@@ -223,6 +226,13 @@ class OrderAdmin(admin.ModelAdmin):
             return [ReadOnlyOrderItemInline(self.model, self.admin_site)]
         return super().get_inline_instances(request, obj)
 
+    def get_media(self, request):
+        media = super().get_media(request)
+        if not request.GET.get('_popup'):  # Не добавляем JS в попап окна
+            if not request.resolver_match.kwargs.get('object_id'):  # Если это создание нового объекта
+                media += forms.Media(js=('admin/js/order_item.js',))
+        return media
+
     def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
         extra_context = extra_context or {}
         extra_context['js_files'] = ['admin/js/order_item.js']
@@ -240,11 +250,9 @@ class OrderAdmin(admin.ModelAdmin):
 
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
-        order = form.instance
-        # Пересчитываем сумму заказа
-        total = sum(
-            item.price * item.quantity for item in order.items.all()
-        )
-        if order.total_amount != total:
-            order.total_amount = total
-            order.save(update_fields=['total_amount'])
+        # Пересчитываем сумму заказа после сохранения связанных объектов
+        if form.instance.pk:
+            total = sum(item.price * item.quantity for item in form.instance.items.all())
+            if form.instance.total_amount != total:
+                form.instance.total_amount = total
+                form.instance.save(update_fields=['total_amount'])

@@ -78,7 +78,7 @@ class OrderItem(models.Model):
         return f'{self.product.name} x {self.quantity}'
 
     def save(self, *args, **kwargs):
-        if self.product_id:
+        if not self.price and self.product_id:
             self.price = self.product.price
         super().save(*args, **kwargs)
 

@@ -18,32 +18,9 @@
                 var totalField = row.find('.field-get_item_total');
                 console.log('Total field:', totalField);
                 totalField.text(total.toFixed(2));
-                updateOrderTotal();
             });
         } else {
             row.find('.field-get_item_total').text('0.00');
-            updateOrderTotal();
-        }
-    }
-
-    function updateOrderTotal() {
-        var total = 0;
-        $('.field-get_item_total').each(function() {
-            total += parseFloat($(this).text()) || 0;
-        });
-        console.log('Order total:', total);
-        // Добавляем или обновляем блок с итоговой суммой
-        if ($('#order-total').length === 0) {
-            $('.form-row:first').after(
-                '<div class="form-row" id="order-total">' +
-                '<div class="field-box">' +
-                '<label>Итоговая сумма заказа:</label>' +
-                '<div class="readonly">' + total.toFixed(2) + '</div>' +
-                '</div>' +
-                '</div>'
-            );
-        } else {
-            $('#order-total .readonly').text(total.toFixed(2));
         }
     }
 
@@ -59,12 +36,6 @@
         $(document).on('change', 'input[id$="-quantity"]', function() {
             console.log('Quantity changed');
             updateItemTotal($(this).closest('tr'));
-        });
-
-        // Обработчик удаления строки
-        $(document).on('click', '.inline-deletelink', function() {
-            console.log('Row deleted');
-            setTimeout(updateOrderTotal, 100);
         });
 
         // Инициализация при загрузке страницы
