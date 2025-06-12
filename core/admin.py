@@ -22,6 +22,24 @@ class CustomUserCreationForm(UserCreationForm):
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 1
+    fields = ('product', 'quantity', 'get_item_total')
+    readonly_fields = ('price', 'get_item_total')
+
+    def get_item_total(self, obj):
+        if obj.id:
+            return obj.total
+        elif obj.product_id:
+            return obj.product.price * obj.quantity
+        return 0
+    get_item_total.short_description = 'Сумма'
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "product":
+            kwargs["queryset"] = Product.objects.all()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    class Media:
+        js = ('admin/js/order_item.js',)
 
 class UserAdmin(BaseUserAdmin):
     add_form = CustomUserCreationForm
@@ -137,19 +155,38 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'client', 'total_amount', 'status', 'created_at', 'created_by')
-    list_filter = ('status', 'created_at', 'created_by')
-    search_fields = ('client__name', 'notes')
+    list_display = ('id', 'date', 'client', 'status', 'total_amount', 'created_at')
+    list_filter = ('status', 'date', 'client')
+    search_fields = ('id', 'client__name')
+    date_hierarchy = 'date'
     inlines = [OrderItemInline]
-    fieldsets = (
-        ('Основная информация', {
-            'fields': ('client', 'status', 'total_amount')
-        }),
-        ('Дополнительно', {
-            'fields': ('notes', 'created_by'),
-            'classes': ('collapse',)
-        }),
-    )
+    readonly_fields = ('created_at', 'updated_at')
+    
+    def get_fieldsets(self, request, obj=None):
+        if obj is None:  # Создание нового заказа
+            return (
+                ('Основная информация', {
+                    'fields': ('date', 'client', 'status', 'total_amount')
+                }),
+            )
+        else:  # Редактирование существующего заказа
+            return (
+                ('Основная информация', {
+                    'fields': ('date', 'client', 'status', 'total_amount')
+                }),
+            )
+
+    class Media:
+        js = ('admin/js/order_item.js',)
+
+    def get_total_amount(self, obj):
+        return obj.total_amount
+    get_total_amount.short_description = 'Общая сумма'
+
+    def get_readonly_fields(self, request, obj=None):
+        if not obj:  # Если это создание нового объекта
+            return ('status',)
+        return ('status',)
 
     def has_module_permission(self, request):
         if request.user.is_superuser:
@@ -159,4 +196,13 @@ class OrderAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         if not change:  # Если это создание нового объекта
             obj.created_by = request.user
+            obj.status = 'new'
         super().save_model(request, obj, form, change)
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        order = form.instance
+        order.total_amount = sum(
+            item.price * item.quantity for item in order.orderitem_set.all()
+        )
+        order.save()
