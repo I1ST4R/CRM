@@ -61,12 +61,59 @@
     }
 
     waitForJQuery(function($) {
+        // Функция для получения списка уже выбранных товаров
+        function getSelectedProducts() {
+            const selectedProducts = [];
+            $('select[id$="-product"]').each(function() {
+                const productId = $(this).val();
+                if (productId) {
+                    selectedProducts.push(productId);
+                }
+            });
+            return selectedProducts;
+        }
+
+        // Функция для обновления доступных опций в селектах товаров
+        function updateProductOptions() {
+            const selectedProducts = getSelectedProducts();
+            
+            $('select[id$="-product"]').each(function() {
+                const currentSelect = $(this);
+                const currentValue = currentSelect.val();
+                
+                // Блокируем все опции
+                currentSelect.find('option').each(function() {
+                    const option = $(this);
+                    const optionValue = option.val();
+                    
+                    if (optionValue === '') {
+                        // Пустая опция всегда доступна
+                        option.prop('disabled', false);
+                    } else if (optionValue === currentValue) {
+                        // Текущий выбранный товар всегда доступен
+                        option.prop('disabled', false);
+                    } else {
+                        // Блокируем товар, если он уже выбран в другом поле
+                        option.prop('disabled', selectedProducts.includes(optionValue));
+                    }
+                });
+            });
+        }
+
+        // Инициализация при загрузке страницы
+        $(document).ready(function() {
+            updateProductOptions();
+        });
+
         // Обработчик изменения товара
         $(document).on('change', 'select[id$="-product"]', function() {
             var row = $(this).closest('tr');
             var quantityInput = $(row).find('input[id$="-quantity"]');
             quantityInput.val(1); // Устанавливаем минимальное значение
             updateItemTotal(row);
+            
+            // Обновляем доступные опции во всех селектах
+            updateProductOptions();
         });
 
         // Обработчик изменения количества
@@ -90,6 +137,9 @@
         // Обработчик отправки формы
         $('form').on('submit', function(e) {
             var hasItems = false;
+            var selectedProducts = getSelectedProducts();
+            var uniqueProducts = new Set(selectedProducts);
+            
             $('.inline-related').each(function() {
                 var productSelect = $(this).find('select[id$="-product"]');
                 var quantityInput = $(this).find('input[id$="-quantity"]');
@@ -102,6 +152,28 @@
                 e.preventDefault();
                 alert('Заказ должен содержать хотя бы один товар');
                 return false;
+            }
+            
+            if (selectedProducts.length !== uniqueProducts.size) {
+                e.preventDefault();
+                alert('Ошибка: один и тот же товар не может быть добавлен несколько раз в заказ.');
+                return false;
+            }
+        });
+
+        // Обработчик добавления новой строки
+        $(document).on('formset:added', function(event, $row, formsetName) {
+            if (formsetName === 'orderitem_set') {
+                // Обновляем доступные опции во всех селектах
+                updateProductOptions();
+            }
+        });
+
+        // Обработчик удаления строки
+        $(document).on('formset:removed', function(event, $row, formsetName) {
+            if (formsetName === 'orderitem_set') {
+                // Обновляем доступные опции во всех селектах
+                updateProductOptions();
             }
         });
 
