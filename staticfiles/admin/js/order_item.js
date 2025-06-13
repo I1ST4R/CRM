@@ -1,76 +1,116 @@
-(function($) {
+(function() {
     'use strict';
+
     
     function updateItemTotal(row) {
-        var productSelect = row.find('select[id$="-product"]');
+        var productSelect = django.jQuery(row).find('select[id$="-product"]');
         var productId = productSelect.val();
-        var quantity = parseInt(row.find('input[id$="-quantity"]').val()) || 0;
-        
-        console.log('Row:', row);
-        console.log('Product ID:', productId);
-        console.log('Quantity:', quantity);
+        var quantityInput = django.jQuery(row).find('input[id$="-quantity"]');
+        var quantity = parseInt(quantityInput.val()) || 0;
         
         if (productId) {
-            $.get(`/core/api/product/${productId}/price/`, function(data) {
-                console.log('Price from API:', data.price);
+            django.jQuery.get(`/core/api/product/${productId}/price/`, function(data) {
+                // Устанавливаем минимальное и максимальное значение
+                quantityInput.attr('min', 1);
+                quantityInput.attr('max', data.stock);
+                
+                // Проверяем текущее значение
+                if (quantity < 1) {
+                    quantityInput.val(1);
+                    quantity = 1;
+                } else if (quantity > data.stock) {
+                    quantityInput.val(data.stock);
+                    quantity = data.stock;
+                }
+                
+                // Обновляем итоговую сумму
                 var total = data.price * quantity;
-                console.log('Total:', total);
-                var totalField = row.find('.field-get_item_total');
-                console.log('Total field:', totalField);
-                totalField.text(total.toFixed(2));
+                var totalField = django.jQuery(row).find('.field-get_item_total');
+                totalField.text(total.toFixed(2) + ' ₽');
+                
+                // Обновляем общую сумму заказа
                 updateOrderTotal();
             });
         } else {
-            row.find('.field-get_item_total').text('0.00');
+            quantityInput.val(1); // Устанавливаем минимальное значение
+            django.jQuery(row).find('.field-get_item_total').text('0.00 ₽');
             updateOrderTotal();
         }
     }
 
     function updateOrderTotal() {
         var total = 0;
-        $('.field-get_item_total').each(function() {
-            total += parseFloat($(this).text()) || 0;
+        django.jQuery('.inline-related').each(function() {
+            var totalText = django.jQuery(this).find('.field-get_item_total').text();
+            if (totalText) {
+                total += parseFloat(totalText.replace(' ₽', '')) || 0;
+            }
         });
-        console.log('Order total:', total);
-        // Добавляем или обновляем блок с итоговой суммой
-        if ($('#order-total').length === 0) {
-            $('.form-row:first').after(
-                '<div class="form-row" id="order-total">' +
-                '<div class="field-box">' +
-                '<label>Итоговая сумма заказа:</label>' +
-                '<div class="readonly">' + total.toFixed(2) + '</div>' +
-                '</div>' +
-                '</div>'
-            );
+        django.jQuery('#id_total_amount').val(total.toFixed(2));
+    }
+
+    // Ждем загрузки jQuery
+    function waitForJQuery(callback) {
+        if (window.django && window.django.jQuery) {
+            callback(window.django.jQuery);
         } else {
-            $('#order-total .readonly').text(total.toFixed(2));
+            setTimeout(function() {
+                waitForJQuery(callback);
+            }, 50);
         }
     }
 
-    django.jQuery(document).ready(function($) {
-        console.log('Document ready');
+    waitForJQuery(function($) {
         // Обработчик изменения товара
         $(document).on('change', 'select[id$="-product"]', function() {
-            console.log('Product changed');
-            updateItemTotal($(this).closest('tr'));
+            var row = $(this).closest('tr');
+            var quantityInput = $(row).find('input[id$="-quantity"]');
+            quantityInput.val(1); // Устанавливаем минимальное значение
+            updateItemTotal(row);
         });
 
         // Обработчик изменения количества
         $(document).on('change', 'input[id$="-quantity"]', function() {
-            console.log('Quantity changed');
+            var value = parseInt($(this).val()) || 0;
+            var min = parseInt($(this).attr('min')) || 1;
+            var max = parseInt($(this).attr('max')) || 1;
+            
+            // Проверяем минимальное значение
+            if (value < min) {
+                $(this).val(min);
+            }
+            // Проверяем максимальное значение
+            if (value > max) {
+                $(this).val(max);
+            }
+            
             updateItemTotal($(this).closest('tr'));
         });
 
-        // Обработчик удаления строки
-        $(document).on('click', '.inline-deletelink', function() {
-            console.log('Row deleted');
-            setTimeout(updateOrderTotal, 100);
+        // Обработчик отправки формы
+        $('form').on('submit', function(e) {
+            var hasItems = false;
+            $('.inline-related').each(function() {
+                var productSelect = $(this).find('select[id$="-product"]');
+                var quantityInput = $(this).find('input[id$="-quantity"]');
+                if (productSelect.val() && parseInt(quantityInput.val()) > 0) {
+                    hasItems = true;
+                }
+            });
+            
+            if (!hasItems) {
+                e.preventDefault();
+                alert('Заказ должен содержать хотя бы один товар');
+                return false;
+            }
         });
 
         // Инициализация при загрузке страницы
         $('.inline-related').each(function() {
-            console.log('Initializing row');
-            updateItemTotal($(this));
+            var row = $(this);
+            var quantityInput = $(row).find('input[id$="-quantity"]');
+            quantityInput.val(1); // Устанавливаем минимальное значение
+            updateItemTotal(row);
         });
     });
-})(django.jQuery); 
+})(); 

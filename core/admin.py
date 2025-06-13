@@ -208,54 +208,50 @@ class OrderAdmin(admin.ModelAdmin):
                 'fields': ('date', 'client', 'status')
             }),
         )
-
+    
     def get_readonly_fields(self, request, obj=None):
         if not obj:  # Если это создание нового объекта
             return ('status',)
         return ('date', 'client', 'get_total_amount', 'created_by')
-
+    
     def get_form(self, request, obj=None, **kwargs):
         if obj:  # Если это редактирование существующего объекта
             return OrderEditForm
         return super().get_form(request, obj, **kwargs)
-
+    
     def has_change_permission(self, request, obj=None):
         if obj and obj.status in ['cancelled', 'completed']:
             return False
         return super().has_change_permission(request, obj)
-
+    
     def get_inline_instances(self, request, obj=None):
         if obj:  # Если это редактирование существующего объекта
             return [ReadOnlyOrderItemInline(self.model, self.admin_site)]
         return super().get_inline_instances(request, obj)
-
-    def get_media(self, request):
-        media = super().get_media(request)
-        if not request.GET.get('_popup'):  # Не добавляем JS в попап окна
-            if not request.resolver_match.kwargs.get('object_id'):  # Если это создание нового объекта
-                media += forms.Media(js=('admin/js/order_item.js',))
-        return media
-
-    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
-        extra_context = extra_context or {}
-        extra_context['js_files'] = ['admin/js/order_item.js']
-        return super().changeform_view(request, object_id, form_url, extra_context)
-
-    def add_view(self, request, form_url='', extra_context=None):
-        extra_context = extra_context or {}
-        extra_context['js_files'] = ['admin/js/order_item.js']
-        return super().add_view(request, form_url, extra_context)
-
+    
     def save_model(self, request, obj, form, change):
         if not change:  # Если это создание нового объекта
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
-
+    
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
-        # Пересчитываем сумму заказа после сохранения связанных объектов
-        if form.instance.pk:
-            total = sum(item.price * item.quantity for item in form.instance.items.all())
-            if form.instance.total_amount != total:
-                form.instance.total_amount = total
-                form.instance.save(update_fields=['total_amount'])
+
+        # Проверяем наличие товаров через formsets
+        has_items = False
+        total = 0
+        for formset in formsets:
+            if hasattr(formset, 'model') and formset.model.__name__ == 'OrderItem':
+                for f in formset.forms:
+                    if not f.cleaned_data.get('DELETE', False) and f.cleaned_data.get('product'):
+                        has_items = True
+                        price = f.cleaned_data.get('price') or 0
+                        quantity = f.cleaned_data.get('quantity') or 0
+                        total += price * quantity
+        if not has_items:
+            raise ValidationError('Заказ должен содержать хотя бы один товар')
+
+        # Сохраняем итоговую сумму
+        order = form.instance
+        order.total_amount = total
+        order.save()

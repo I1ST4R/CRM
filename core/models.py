@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 
 class Client(models.Model):
     name = models.CharField(max_length=200, verbose_name='Имя')
@@ -37,38 +38,41 @@ class Order(models.Model):
         ('new', 'Новый'),
         ('in_progress', 'В работе'),
         ('completed', 'Выполнен'),
-        ('cancelled', 'Отменен')
+        ('cancelled', 'Отменен'),
     ]
 
+    id = models.AutoField(primary_key=True, verbose_name="Номер заказа")
+    client = models.ForeignKey(Client, on_delete=models.PROTECT, verbose_name="Клиент")
     date = models.DateField(verbose_name="Дата заказа")
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, verbose_name="Клиент")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new', verbose_name="Статус")
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Итоговая сумма", editable=False)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="Менеджер", editable=False)
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="Менеджер")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
 
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        # Пересчитываем сумму заказа
-        total = sum(item.price * item.quantity for item in self.items.all())
-        if self.total_amount != total:
-            self.total_amount = total
-            super().save(update_fields=['total_amount'])
+    def __str__(self):
+        return f"Заказ #{self.id}"
 
     class Meta:
         verbose_name = "Заказ"
         verbose_name_plural = "Заказы"
         ordering = ['-date', '-created_at']
 
-    def __str__(self):
-        return f"Заказ {self.id} от {self.date}"
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items', verbose_name="Заказ")
     product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name="Товар")
-    quantity = models.PositiveIntegerField(default=1, verbose_name="Количество")
+    quantity = models.PositiveIntegerField(verbose_name="Количество")
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
+
+    def clean(self):
+        super().clean()
+        if self.quantity <= 0:
+            raise ValidationError('Количество товара должно быть больше нуля')
+        if self.product and self.quantity > self.product.stock:
+            raise ValidationError(f'На складе доступно только {self.product.stock} шт. товара')
 
     def save(self, *args, **kwargs):
         if not self.price and self.product_id:
