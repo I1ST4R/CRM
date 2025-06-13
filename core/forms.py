@@ -37,3 +37,8 @@ class OrderEditForm(forms.ModelForm):
             elif current_status == 'completed':
                 # Если статус "Выполнен", нельзя менять
                 self.fields['status'].widget.attrs['disabled'] = True 
+
+class OrderStatusForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = ['status'] 

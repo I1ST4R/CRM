@@ -9,7 +9,7 @@ from .permissions import create_groups
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from datetime import date
-from .forms import OrderAdminForm, OrderEditForm
+from .forms import OrderAdminForm, OrderEditForm, OrderStatusForm
 
 class CustomUserCreationForm(UserCreationForm):
     ROLE_CHOICES = [
@@ -216,6 +216,8 @@ class OrderAdmin(admin.ModelAdmin):
     
     def get_form(self, request, obj=None, **kwargs):
         if obj:  # Если это редактирование существующего объекта
+            if request.POST.get('_save') == 'Сохранить':  # Если это изменение статуса
+                return OrderStatusForm
             return OrderEditForm
         return super().get_form(request, obj, **kwargs)
     
@@ -226,32 +228,43 @@ class OrderAdmin(admin.ModelAdmin):
     
     def get_inline_instances(self, request, obj=None):
         if obj:  # Если это редактирование существующего объекта
+            if request.POST.get('_save') == 'Сохранить':  # Если это изменение статуса
+                return []  # Не возвращаем inline формы при изменении статуса
             return [ReadOnlyOrderItemInline(self.model, self.admin_site)]
         return super().get_inline_instances(request, obj)
     
     def save_model(self, request, obj, form, change):
-        if not change:  # Если это создание нового объекта
+        if not change:  # Если это создание нового заказа
             obj.created_by = request.user
+        else:  # Если это изменение существующего заказа
+            old_order = Order.objects.get(pk=obj.pk)
+            # Если статус изменился на "отменен"
+            if old_order.status != 'cancelled' and obj.status == 'cancelled':
+                # Возвращаем товары на склад
+                for item in obj.items.all():
+                    product = item.product
+                    product.stock += item.quantity
+                    product.save()
         super().save_model(request, obj, form, change)
-    
+
     def save_related(self, request, form, formsets, change):
-        super().save_related(request, form, formsets, change)
+        if not change:  # Только при создании нового заказа
+            super().save_related(request, form, formsets, change)
+            total = 0
+            for formset in formsets:
+                if hasattr(formset, 'model') and formset.model.__name__ == 'OrderItem':
+                    for f in formset.forms:
+                        if not f.cleaned_data.get('DELETE', False) and f.cleaned_data.get('product'):
+                            product = f.cleaned_data.get('product')
+                            quantity = f.cleaned_data.get('quantity') or 0
+                            price = product.price
+                            total += price * quantity
 
-        # Проверяем наличие товаров через formsets
-        has_items = False
-        total = 0
-        for formset in formsets:
-            if hasattr(formset, 'model') and formset.model.__name__ == 'OrderItem':
-                for f in formset.forms:
-                    if not f.cleaned_data.get('DELETE', False) and f.cleaned_data.get('product'):
-                        has_items = True
-                        price = f.cleaned_data.get('price') or 0
-                        quantity = f.cleaned_data.get('quantity') or 0
-                        total += price * quantity
-        if not has_items:
-            raise ValidationError('Заказ должен содержать хотя бы один товар')
+                            # Вычитаем товары со склада без проверки остатков
+                            product.stock -= quantity
+                            product.save()
 
-        # Сохраняем итоговую сумму
-        order = form.instance
-        order.total_amount = total
-        order.save()
+            # Обновляем общую сумму заказа
+            order = form.instance
+            order.total_amount = total
+            order.save()

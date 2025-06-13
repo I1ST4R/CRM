@@ -71,7 +71,7 @@ class OrderItem(models.Model):
         super().clean()
         if self.quantity <= 0:
             raise ValidationError('Количество товара должно быть больше нуля')
-        if self.product and self.quantity > self.product.stock:
+        if not self.pk and self.product and self.quantity > self.product.stock:
             raise ValidationError(f'На складе доступно только {self.product.stock} шт. товара')
 
     def save(self, *args, **kwargs):
