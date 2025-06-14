@@ -116,11 +116,17 @@ class DeliveryItem(models.Model):
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
-        super().save(*args, **kwargs)
-        
-        if is_new:  # Если это новый товар в привозе
-            # Обновляем количество товара на складе
+        if is_new:
+            # Если это новый товар в привозе
+            super().save(*args, **kwargs)
             self.product.stock += self.quantity
+            self.product.save()
+        else:
+            # Если это редактирование существующего товара
+            old_quantity = DeliveryItem.objects.get(pk=self.pk).quantity
+            super().save(*args, **kwargs)
+            # Обновляем количество на складе с учетом разницы
+            self.product.stock = self.product.stock - old_quantity + self.quantity
             self.product.save()
 
     def delete(self, *args, **kwargs):
