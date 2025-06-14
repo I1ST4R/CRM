@@ -1,0 +1,93 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block after_field_sets %}
+{{ block.super }}
+{% if original %}
+<div class="module aligned">
+    <h2>Заказы клиента</h2>
+    <div id="customer-orders">
+        <div id="no-orders-message" style="display: none; padding: 10px;">У клиента пока нет заказов</div>
+        <table id="orders-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Номер заказа</th>
+                    <th>Дата</th>
+                    <th>Статус</th>
+                    <th>Сумма</th>
+                </tr>
+            </thead>
+            <tbody id="orders-list">
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+django.jQuery(document).ready(function($) {
+    const clientId = '{{ client_id }}';
+    
+    // Получаем заказы клиента
+    $.get(`/core/api/customer/${clientId}/orders/`, function(data) {
+        if (data.orders.length === 0) {
+            $('#no-orders-message').show();
+            return;
+        }
+        
+        $('#orders-table').show();
+        const ordersList = $('#orders-list');
+        
+        data.orders.forEach(order => {
+            const row = $('<tr>');
+            row.append(`<td><a href="/admin/core/order/${order.id}/change/">Заказ #${order.number}</a></td>`);
+            row.append(`<td>${order.created_at}</td>`);
+            row.append(`<td>${order.status}</td>`);
+            row.append(`<td>${order.total_amount} ₽</td>`);
+            ordersList.append(row);
+        });
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+        $('#no-orders-message').text('Ошибка при загрузке заказов').show();
+    });
+});
+</script>
+
+<style>
+#customer-orders {
+    margin: 20px 0;
+}
+
+#customer-orders table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#customer-orders th {
+    background: #417690;
+    color: #fff;
+    padding: 8px;
+    text-align: left;
+    font-weight: 400;
+}
+
+#customer-orders td {
+    padding: 8px;
+    border-bottom: 1px solid #333;
+    color: #fff;
+}
+
+#customer-orders a {
+    color: #fff;
+    text-decoration: none;
+}
+
+#customer-orders a:hover {
+    color: #ccc;
+}
+
+#no-orders-message {
+    color: #666;
+    font-style: italic;
+}
+</style>
+{% endif %}
+{% endblock %} 

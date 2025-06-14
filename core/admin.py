@@ -111,6 +111,12 @@ class ClientAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+    change_form_template = 'admin/core/customer/change_form.html'
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['client_id'] = object_id
+        return super().change_view(request, object_id, form_url, extra_context=extra_context)
 
     def has_module_permission(self, request):
         if request.user.is_superuser:
