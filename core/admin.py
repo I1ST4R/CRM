@@ -253,6 +253,11 @@ class OrderAdmin(admin.ModelAdmin):
                     product.save()
         super().save_model(request, obj, form, change)
 
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['show_report_button'] = True
+        return super().changelist_view(request, extra_context=extra_context)
+
     def save_related(self, request, form, formsets, change):
         if not change:  # Только при создании нового заказа
             super().save_related(request, form, formsets, change)
