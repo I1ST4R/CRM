@@ -7,6 +7,9 @@ from django.core.serializers import serialize
 from django.db.models import F, Count, Sum
 from django.contrib.admin.views.decorators import staff_member_required
 from datetime import datetime
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+from django.utils import timezone
 
 # Create your views here.
 
@@ -96,3 +99,87 @@ def order_report(request):
     }
 
     return render(request, 'admin/core/order/report.html', context)
+
+@staff_member_required
+def export_order_report(request):
+    # Получаем параметры фильтрации
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    client_id = request.GET.get('client')
+
+    # Базовый queryset
+    orders = Order.objects.all()
+
+    # Применяем фильтры
+    if date_from:
+        orders = orders.filter(date__gte=date_from)
+    if date_to:
+        orders = orders.filter(date__lte=date_to)
+    if client_id:
+        orders = orders.filter(client_id=client_id)
+
+    # Создаем новый Excel файл
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Отчет по заказам"
+
+    # Стили для заголовков
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="417690", end_color="417690", fill_type="solid")
+    header_alignment = Alignment(horizontal='center', vertical='center')
+
+    # Заголовки
+    headers = ['Номер заказа', 'Дата', 'Клиент', 'Статус', 'Сумма']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col)
+        cell.value = header
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+
+    # Данные
+    for row, order in enumerate(orders.order_by('-date'), 2):
+        ws.cell(row=row, column=1, value=f"Заказ #{order.id}")
+        ws.cell(row=row, column=2, value=order.date.strftime('%d.%m.%Y'))
+        ws.cell(row=row, column=3, value=order.client.name)
+        ws.cell(row=row, column=4, value=order.get_status_display())
+        ws.cell(row=row, column=5, value=order.total_amount)
+
+    # Добавляем статистику
+    ws.append([])  # Пустая строка
+    ws.append(['Статистика по статусам'])
+    ws.append(['Статус', 'Количество', 'Процент'])
+
+    total_orders = orders.count()
+    if total_orders > 0:
+        for status, status_display in Order.STATUS_CHOICES:
+            count = orders.filter(status=status).count()
+            percent = round((count / total_orders) * 100, 1)
+            ws.append([status_display, count, f"{percent}%"])
+
+    # Общая сумма
+    total_amount = orders.aggregate(total=Sum('total_amount'))['total'] or 0
+    ws.append([])
+    ws.append(['Общая сумма заказов:', total_amount])
+
+    # Настройка ширины столбцов
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = (max_length + 2)
+        ws.column_dimensions[column].width = adjusted_width
+
+    # Создаем ответ
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename=order_report_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+    
+    wb.save(response)
+    return response
