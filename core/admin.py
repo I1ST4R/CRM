@@ -4,12 +4,12 @@ from django.contrib.auth.models import User, Group
 from django.contrib.auth.forms import UserCreationForm
 from django import forms
 from django.utils.html import format_html, strip_tags
-from .models import Client, Product, Order, OrderItem
+from .models import Client, Product, Order, OrderItem, Delivery, DeliveryItem
 from .permissions import create_groups
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from datetime import date
-from .forms import OrderAdminForm, OrderEditForm, OrderStatusForm
+from .forms import OrderAdminForm, OrderEditForm, OrderStatusForm, DeliveryAdminForm
 
 class CustomUserCreationForm(UserCreationForm):
     ROLE_CHOICES = [
@@ -296,3 +296,28 @@ class OrderAdmin(admin.ModelAdmin):
             order = form.instance
             order.total_amount = total
             order.save()
+
+class DeliveryItemInline(admin.TabularInline):
+    model = DeliveryItem
+    extra = 1
+    fields = ('product', 'quantity')
+
+@admin.register(Delivery)
+class DeliveryAdmin(admin.ModelAdmin):
+    form = DeliveryAdminForm
+    list_display = ('id', 'date', 'created_by', 'created_at')
+    list_filter = ('date', 'created_by')
+    search_fields = ('id', 'created_by__username')
+    date_hierarchy = 'date'
+    inlines = [DeliveryItemInline]
+
+    def save_model(self, request, obj, form, change):
+        if not change:  # Если это новый объект
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(created_by=request.user)

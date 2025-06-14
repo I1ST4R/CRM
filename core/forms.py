@@ -1,5 +1,7 @@
 from django import forms
-from .models import Order
+from .models import Order, Delivery, DeliveryItem
+from django.core.exceptions import ValidationError
+from datetime import date
 
 class OrderAdminForm(forms.ModelForm):
     class Meta:
@@ -42,3 +44,16 @@ class OrderStatusForm(forms.ModelForm):
     class Meta:
         model = Order
         fields = ['status'] 
+
+class DeliveryAdminForm(forms.ModelForm):
+    class Meta:
+        model = Delivery
+        fields = []  # Пустой список, так как все поля заполняются автоматически
+
+class DeliveryItemForm(forms.ModelForm):
+    class Meta:
+        model = DeliveryItem
+        fields = ['product', 'quantity']
+        widgets = {
+            'quantity': forms.NumberInput(attrs={'min': '1'})
+        } 
