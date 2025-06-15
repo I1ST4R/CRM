@@ -4,12 +4,13 @@ from django.contrib.auth.models import User, Group
 from django.contrib.auth.forms import UserCreationForm
 from django import forms
 from django.utils.html import format_html, strip_tags
-from .models import Client, Product, Order, OrderItem, Delivery, DeliveryItem
+from .models import Client, Product, Order, OrderItem, Delivery, DeliveryItem, StockMovement
 from .permissions import create_groups
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from datetime import date
 from .forms import OrderAdminForm, OrderEditForm, OrderStatusForm, DeliveryAdminForm
+from django.urls import reverse
 
 class CustomUserCreationForm(UserCreationForm):
     ROLE_CHOICES = [
@@ -261,8 +262,19 @@ class OrderAdmin(admin.ModelAdmin):
             obj.created_by = request.user
         else:  # Если это изменение существующего заказа
             old_order = Order.objects.get(pk=obj.pk)
+            # Если статус изменился на "выполнен"
+            if old_order.status != 'completed' and obj.status == 'completed':
+                # Создаем записи о движении товаров
+                for item in obj.items.all():
+                    StockMovement.objects.create(
+                        product=item.product,
+                        quantity=item.quantity,
+                        movement_type='out',
+                        source_type='order',
+                        source_id=obj.id
+                    )
             # Если статус изменился на "отменен"
-            if old_order.status != 'cancelled' and obj.status == 'cancelled':
+            elif old_order.status != 'cancelled' and obj.status == 'cancelled':
                 # Возвращаем товары на склад
                 for item in obj.items.all():
                     product = item.product
@@ -314,10 +326,78 @@ class DeliveryAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         if not change:  # Если это новый объект
             obj.created_by = request.user
-        super().save_model(request, obj, form, change)
+            super().save_model(request, obj, form, change)
+        else:
+            # Удаляем старые записи о движении
+            StockMovement.objects.filter(source_type='delivery', source_id=obj.id).delete()
+            # Возвращаем старые количества товаров
+            old_items = DeliveryItem.objects.filter(delivery=obj)
+            for item in old_items:
+                product = item.product
+                product.stock -= item.quantity
+                product.save()
+            super().save_model(request, obj, form, change)
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            return qs
-        return qs.filter(created_by=request.user)
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        if change:  # Если это редактирование существующего привоза
+            # Создаем новые записи о движении
+            for formset in formsets:
+                if hasattr(formset, 'model') and formset.model.__name__ == 'DeliveryItem':
+                    for f in formset.forms:
+                        if not f.cleaned_data.get('DELETE', False) and f.cleaned_data.get('product'):
+                            product = f.cleaned_data.get('product')
+                            quantity = f.cleaned_data.get('quantity') or 0
+                            # Создаем запись о движении
+                            StockMovement.objects.create(
+                                product=product,
+                                quantity=quantity,
+                                movement_type='in',
+                                source_type='delivery',
+                                source_id=form.instance.id
+                            )
+                            # Увеличиваем количество товара на складе
+                            product.stock += quantity
+                            product.save()
+        else:  # Если это создание нового привоза
+            for formset in formsets:
+                if hasattr(formset, 'model') and formset.model.__name__ == 'DeliveryItem':
+                    for f in formset.forms:
+                        if not f.cleaned_data.get('DELETE', False) and f.cleaned_data.get('product'):
+                            product = f.cleaned_data.get('product')
+                            quantity = f.cleaned_data.get('quantity') or 0
+                            # Создаем запись о движении
+                            StockMovement.objects.create(
+                                product=product,
+                                quantity=quantity,
+                                movement_type='in',
+                                source_type='delivery',
+                                source_id=form.instance.id
+                            )
+                            # Увеличиваем количество товара на складе
+                            product.stock += quantity
+                            product.save()
+
+@admin.register(StockMovement)
+class StockMovementAdmin(admin.ModelAdmin):
+    list_display = ('id', 'product', 'quantity', 'movement_type', 'date', 'get_source_link')
+    list_filter = ('movement_type', 'date', 'product')
+    search_fields = ('product__name', 'source_id')
+    date_hierarchy = 'date'
+    readonly_fields = ('product', 'quantity', 'movement_type', 'date', 'source_type', 'source_id')
+
+    def get_source_link(self, obj):
+        if obj.source_type == 'delivery':
+            url = reverse('admin:core_delivery_change', args=[obj.source_id])
+            return format_html('<a href="{}">Привоз #{}</a>', url, obj.source_id)
+        elif obj.source_type == 'order':
+            url = reverse('admin:core_order_change', args=[obj.source_id])
+            return format_html('<a href="{}">Заказ #{}</a>', url, obj.source_id)
+        return f"{obj.source_type} #{obj.source_id}"
+    get_source_link.short_description = 'Источник'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

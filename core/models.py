@@ -78,6 +78,9 @@ class OrderItem(models.Model):
         if not self.price and self.product_id:
             self.price = self.product.price
         super().save(*args, **kwargs)
+        # Обновляем общую сумму заказа
+        self.order.total_amount = sum(item.get_total() for item in self.order.items.all())
+        self.order.save()
 
     def get_total(self):
         return self.price * self.quantity
@@ -141,3 +144,24 @@ class DeliveryItem(models.Model):
     class Meta:
         verbose_name = "Товар при привозе"
         verbose_name_plural = "Товары при привозе"
+
+class StockMovement(models.Model):
+    MOVEMENT_TYPES = [
+        ('in', 'Приход'),
+        ('out', 'Расход'),
+    ]
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Товар')
+    quantity = models.PositiveIntegerField(verbose_name='Количество')
+    movement_type = models.CharField(max_length=3, choices=MOVEMENT_TYPES, verbose_name='Тип движения')
+    date = models.DateTimeField(auto_now_add=True, verbose_name='Дата')
+    source_type = models.CharField(max_length=10, verbose_name='Тип источника')
+    source_id = models.PositiveIntegerField(verbose_name='ID источника')
+
+    class Meta:
+        verbose_name = 'Движение товара'
+        verbose_name_plural = 'Движения товаров'
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.get_movement_type_display()} {self.product.name} - {self.quantity} шт."
