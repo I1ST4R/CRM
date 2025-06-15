@@ -1,5 +1,5 @@
 {% extends "admin/change_form.html" %}
-{% load i18n admin_urls %}
+{% load i18n admin_urls static %}
 
 {% block extrahead %}
 {{ block.super }}
@@ -87,4 +87,5 @@
     background: #295570;
 }
 </style>
+<script type="text/javascript" src="{% static 'admin/js/delivery_item.js' %}"></script>
 {% endblock %} 

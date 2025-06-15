@@ -314,6 +314,9 @@ class DeliveryItemInline(admin.TabularInline):
     extra = 1
     fields = ('product', 'quantity')
 
+    class Media:
+        js = ('/static/admin/js/delivery_item.js',)
+
 @admin.register(Delivery)
 class DeliveryAdmin(admin.ModelAdmin):
     form = DeliveryAdminForm

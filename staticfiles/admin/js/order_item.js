@@ -43,7 +43,8 @@
         django.jQuery('.inline-related').each(function() {
             var totalText = django.jQuery(this).find('.field-get_item_total').text();
             if (totalText) {
-                total += parseFloat(totalText.replace(' ₽', '')) || 0;
+                var amount = parseFloat(totalText.replace(' ₽', '').replace(/\s/g, '')) || 0;
+                total += amount;
             }
         });
         django.jQuery('#id_total_amount').val(total.toFixed(2));
