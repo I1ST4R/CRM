@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow mb-4">
+                <div class="card-body">
+                    <h2 class="mb-4 text-center">Редактировать заказ #{{ order.id }}</h2>
+                    <form method="post" novalidate class="mb-4">
+                        {% csrf_token %}
+                        {{ form.non_field_errors }}
+                        <div class="form-group">
+                            <label for="id_status">Статус</label>
+                            {{ form.status.errors }}
+                            {{ form.status }}
+                        </div>
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                        <a href="{% url 'orders_list' %}" class="btn btn-secondary ml-2">Отмена</a>
+                    </form>
+                    <h4 class="mt-4">Товары в заказе</h4>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Товар</th>
+                                <th>Количество</th>
+                                <th>Итого</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                                <tr>
+                                    <td>{{ item.product }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>{{ item.get_total|floatformat:2 }} ₽</td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="3" class="text-center">Нет товаров</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

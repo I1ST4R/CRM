@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h2 class="mb-4 text-center">{% if action == 'add' %}Добавить клиента{% else %}Редактировать клиента{% endif %}</h2>
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        {{ form.non_field_errors }}
+                        <div class="form-group">
+                            <label for="id_name">Имя</label>
+                            <input type="text" name="name" class="form-control" id="id_name" value="{{ form.name.value|default_if_none:'' }}">
+                            {{ form.name.errors }}
+                        </div>
+                        <div class="form-group">
+                            <label for="id_email">Email</label>
+                            <input type="email" name="email" class="form-control" id="id_email" value="{{ form.email.value|default_if_none:'' }}">
+                            {{ form.email.errors }}
+                        </div>
+                        <div class="form-group">
+                            <label for="id_phone">Телефон</label>
+                            <input type="text" name="phone" class="form-control" id="id_phone" value="{{ form.phone.value|default_if_none:'' }}">
+                            {{ form.phone.errors }}
+                        </div>
+                        <div class="form-group">
+                            <label for="id_address">Адрес</label>
+                            <textarea name="address" class="form-control" id="id_address">{{ form.address.value|default_if_none:'' }}</textarea>
+                            {{ form.address.errors }}
+                        </div>
+                        <div class="form-group">
+                            <label for="id_notes">Заметки</label>
+                            <textarea name="notes" class="form-control" id="id_notes">{{ form.notes.value|default_if_none:'' }}</textarea>
+                            {{ form.notes.errors }}
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+                        <a href="{% url 'clients_list' %}" class="btn btn-secondary btn-block mt-2">Отмена</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

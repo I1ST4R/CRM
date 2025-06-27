@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Доставки</title>
+    <title>Привозы</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body class="bg-light">
     <div class="container py-5">
-        <h1 class="mb-4">Доставки</h1>
+        <h1 class="mb-4">Привозы</h1>
         <a href="/" class="btn btn-secondary mb-3">На главную</a>
-        <a href="/core/deliveries/add/" class="btn btn-success mb-3 ml-2">Добавить доставку</a>
+        <a href="/core/deliveries/add/" class="btn btn-success mb-3 ml-2">Добавить привоз</a>
         <div class="card shadow">
             <div class="card-body p-0">
                 <table class="table table-striped mb-0">
@@ -36,7 +36,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="5" class="text-center">Нет доставок</td></tr>
+                        <tr><td colspan="5" class="text-center">Нет привозов</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

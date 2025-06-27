@@ -10,11 +10,22 @@
         <div class="row justify-content-center">
             <div class="col-md-8">
                 <div class="list-group shadow">
-                    <a href="/core/clients/" class="list-group-item list-group-item-action">Клиенты</a>
-                    <a href="/core/products/" class="list-group-item list-group-item-action">Продукты</a>
-                    <a href="/core/orders/" class="list-group-item list-group-item-action">Заказы</a>
-                    <a href="/core/deliveries/" class="list-group-item list-group-item-action">Доставки</a>
-                    <a href="/core/stock/" class="list-group-item list-group-item-action">Склад</a>
+                    {% if role == 'admin' %}
+                        <a href="/core/clients/" class="list-group-item list-group-item-action">Клиенты</a>
+                        <a href="/core/products/" class="list-group-item list-group-item-action">Товары</a>
+                        <a href="/core/orders/" class="list-group-item list-group-item-action">Заказы</a>
+                        <a href="/core/deliveries/" class="list-group-item list-group-item-action">Привозы</a>
+                        <a href="/core/stock/" class="list-group-item list-group-item-action">Движения товаров</a>
+                    {% elif role == 'manager' %}
+                        <a href="/core/clients/" class="list-group-item list-group-item-action">Клиенты</a>
+                        <a href="/core/orders/" class="list-group-item list-group-item-action">Заказы</a>
+                    {% elif role == 'warehouse' %}
+                        <a href="/core/products/" class="list-group-item list-group-item-action">Товары</a>
+                        <a href="/core/deliveries/" class="list-group-item list-group-item-action">Привозы</a>
+                        <a href="/core/stock/" class="list-group-item list-group-item-action">Движения товаров</a>
+                    {% else %}
+                        <div class="alert alert-warning">Нет доступа к разделам CRM</div>
+                    {% endif %}
                 </div>
             </div>
         </div>

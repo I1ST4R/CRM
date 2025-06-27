@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Склад</title>
+    <title>Движения склада</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body class="bg-light">
     <div class="container py-5">
         <h1 class="mb-4">Движения склада</h1>
         <a href="/" class="btn btn-secondary mb-3">На главную</a>
-        <a href="/core/stock/add/" class="btn btn-success mb-3 ml-2">Добавить движение</a>
         <div class="card shadow">
             <div class="card-body p-0">
                 <table class="table table-striped mb-0">
@@ -21,7 +20,6 @@
                             <th>Тип</th>
                             <th>Дата</th>
                             <th>Источник</th>
-                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -31,14 +29,18 @@
                             <td>{{ item.quantity }}</td>
                             <td>{{ item.get_movement_type_display }}</td>
                             <td>{{ item.date|date:'d.m.Y H:i' }}</td>
-                            <td>{{ item.source_type }} #{{ item.source_id }}</td>
                             <td>
-                                <a href="/core/stock/{{ item.id }}/edit/" class="btn btn-sm btn-primary">Изменить</a>
-                                <a href="/core/stock/{{ item.id }}/delete/" class="btn btn-sm btn-danger">Удалить</a>
+                                {% if item.source_type == 'order' %}
+                                    <a href="/core/orders/{{ item.source_id }}/edit/">Заказ #{{ item.source_id }}</a>
+                                {% elif item.source_type == 'delivery' %}
+                                    <a href="/core/deliveries/{{ item.source_id }}/edit/">Привоз #{{ item.source_id }}</a>
+                                {% else %}
+                                    {{ item.source_type }} #{{ item.source_id }}
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="6" class="text-center">Нет движений</td></tr>
+                        <tr><td colspan="5" class="text-center">Нет движений</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

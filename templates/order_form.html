@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h2 class="mb-4 text-center">Добавить заказ</h2>
+                    <form method="post" novalidate id="order-form">
+                        {% csrf_token %}
+                        {{ form.non_field_errors }}
+                        <div class="form-group">
+                            <label for="id_client">Клиент</label>
+                            {{ form.client.errors }}
+                            <select name="client" class="form-control" id="id_client">
+                                {% for c in form.fields.client.queryset %}
+                                    <option value="{{ c.pk }}" {% if form.client.value|stringformat:'s' == c.pk|stringformat:'s' %}selected{% endif %}>{{ c }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <h4 class="mt-4">Товары</h4>
+                        {{ formset.management_form }}
+                        <table class="table table-bordered" id="order-items-table">
+                            <thead>
+                                <tr>
+                                    <th>Товар</th>
+                                    <th>Количество</th>
+                                    <th>Итого</th>
+                                    <th>Удалить</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for form in formset %}
+                                    <tr class="order-item-row">
+                                        <td>{{ form.product }}</td>
+                                        <td>{{ form.quantity }}</td>
+                                        <td>—</td>
+                                        <td>
+                                            <button type="button" class="btn btn-danger btn-sm delete-row">Удалить</button>
+                                            {{ form.DELETE }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                <!-- Шаблон для новых строк (скрытый) -->
+                                <tr class="order-item-row d-none" id="order-item-empty-form">
+                                    <td>{{ formset.empty_form.product }}</td>
+                                    <td>{{ formset.empty_form.quantity }}</td>
+                                    <td>—</td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm delete-row">Удалить</button>
+                                        {{ formset.empty_form.DELETE }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <button type="button" class="btn btn-success" id="add-row">Добавить товар</button>
+                        <button type="submit" class="btn btn-primary btn-block mt-3">Создать заказ</button>
+                        <a href="{% url 'orders_list' %}" class="btn btn-secondary btn-block mt-2">Отмена</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<style>
+    input[type="checkbox"][name$="-DELETE"] {
+        display: none !important;
+    }
+</style>
+<script src="/static/admin/js/order_item.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const table = document.getElementById('order-items-table').getElementsByTagName('tbody')[0];
+        const addBtn = document.getElementById('add-row');
+        // Универсально ищем поле TOTAL_FORMS
+        const totalForms = document.querySelector('input[name$="-TOTAL_FORMS"]');
+        const emptyForm = document.getElementById('order-item-empty-form');
+        if (!totalForms) {
+            console.error('Не найдено поле TOTAL_FORMS для формсета!');
+            return;
+        }
+        // Кнопка добавить
+        addBtn.addEventListener('click', function() {
+            let formIdx = parseInt(totalForms.value);
+            let newRow = emptyForm.cloneNode(true);
+            newRow.classList.remove('d-none');
+            newRow.id = '';
+            // Заменяем __prefix__ на индекс
+            newRow.innerHTML = newRow.innerHTML.replace(/__prefix__/g, formIdx);
+            table.appendChild(newRow);
+            totalForms.value = formIdx + 1;
+            // Навешиваем обработчик удаления
+            let delBtn = newRow.querySelector('.delete-row');
+            if (delBtn) {
+                delBtn.addEventListener('click', function() {
+                    let row = this.closest('tr');
+                    let delCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+                    if (delCheckbox) delCheckbox.checked = true;
+                    row.style.display = 'none';
+                });
+            }
+        });
+        // Кнопки удалить для существующих строк
+        document.querySelectorAll('.delete-row').forEach(btn => {
+            btn.addEventListener('click', function() {
+                let row = this.closest('tr');
+                let delCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+                if (delCheckbox) delCheckbox.checked = true;
+                row.style.display = 'none';
+            });
+        });
+    });
+</script>
+{% endblock %} 

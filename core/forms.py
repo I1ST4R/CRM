@@ -1,5 +1,5 @@
 from django import forms
-from .models import Order, Delivery, DeliveryItem
+from .models import Order, Delivery, DeliveryItem, Client, Product, StockMovement, OrderItem
 from django.core.exceptions import ValidationError
 from datetime import date
 
@@ -57,3 +57,40 @@ class DeliveryItemForm(forms.ModelForm):
         widgets = {
             'quantity': forms.NumberInput(attrs={'min': '1'})
         } 
+
+class ClientForm(forms.ModelForm):
+    class Meta:
+        model = Client
+        fields = ['name', 'email', 'phone', 'address', 'notes']
+
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = ['name', 'description', 'price']
+
+class StockMovementForm(forms.ModelForm):
+    class Meta:
+        model = StockMovement
+        fields = ['product', 'quantity', 'movement_type', 'source_type', 'source_id'] 
+
+class DeliveryForm(forms.ModelForm):
+    class Meta:
+        model = Delivery
+        fields = []
+
+class OrderForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = ['client']
+
+class OrderItemForm(forms.ModelForm):
+    class Meta:
+        model = OrderItem
+        fields = ['product', 'quantity']
+        widgets = {
+            'quantity': forms.NumberInput(attrs={'min': '1'})
+        } 
+
+DeliveryItemFormSet = forms.inlineformset_factory(
+    Delivery, DeliveryItem, form=DeliveryItemForm, extra=1, can_delete=True
+) 

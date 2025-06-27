@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h2 class="mb-4 text-center">Создать привоз</h2>
+                    <form method="post" novalidate id="delivery-form">
+                        {% csrf_token %}
+                        {{ form.non_field_errors }}
+                        <h4 class="mt-4">Товары в привозе</h4>
+                        {{ formset.management_form }}
+                        <table class="table table-bordered" id="delivery-items-table">
+                            <thead>
+                                <tr>
+                                    <th>Товар</th>
+                                    <th>Количество</th>
+                                    <th>Удалить</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for form in formset %}
+                                    <tr class="delivery-item-row">
+                                        <td>{{ form.product }}</td>
+                                        <td>{{ form.quantity }}</td>
+                                        <td>
+                                            <button type="button" class="btn btn-danger btn-sm delete-row">Удалить</button>
+                                            {{ form.DELETE }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                <!-- Шаблон для новых строк (скрытый) -->
+                                <tr class="delivery-item-row d-none" id="delivery-item-empty-form">
+                                    <td>{{ formset.empty_form.product }}</td>
+                                    <td>{{ formset.empty_form.quantity }}</td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm delete-row">Удалить</button>
+                                        {{ formset.empty_form.DELETE }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <button type="button" class="btn btn-success" id="add-row">Добавить товар</button>
+                        <button type="submit" class="btn btn-primary btn-block mt-3">Создать привоз</button>
+                        <a href="{% url 'deliveries_list' %}" class="btn btn-secondary btn-block mt-2">Отмена</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<style>
+    input[type="checkbox"][name$="-DELETE"] {
+        display: none !important;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const table = document.getElementById('delivery-items-table').getElementsByTagName('tbody')[0];
+        const addBtn = document.getElementById('add-row');
+        const totalForms = document.querySelector('input[name$="-TOTAL_FORMS"]');
+        const emptyForm = document.getElementById('delivery-item-empty-form');
+        if (!totalForms) {
+            console.error('Не найдено поле TOTAL_FORMS для формсета!');
+            return;
+        }
+        addBtn.addEventListener('click', function() {
+            let formIdx = parseInt(totalForms.value);
+            let newRow = emptyForm.cloneNode(true);
+            newRow.classList.remove('d-none');
+            newRow.id = '';
+            newRow.innerHTML = newRow.innerHTML.replace(/__prefix__/g, formIdx);
+            table.appendChild(newRow);
+            totalForms.value = formIdx + 1;
+            let delBtn = newRow.querySelector('.delete-row');
+            if (delBtn) {
+                delBtn.addEventListener('click', function() {
+                    let row = this.closest('tr');
+                    let delCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+                    if (delCheckbox) delCheckbox.checked = true;
+                    row.style.display = 'none';
+                });
+            }
+        });
+        document.querySelectorAll('.delete-row').forEach(btn => {
+            btn.addEventListener('click', function() {
+                let row = this.closest('tr');
+                let delCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+                if (delCheckbox) delCheckbox.checked = true;
+                row.style.display = 'none';
+            });
+        });
+    });
+</script>
+{% endblock %} 

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-body text-center">
+                    <h2 class="mb-4">Удалить заказ #{{ order.id }}?</h2>
+                    <p class="mb-4">Вы уверены, что хотите удалить этот заказ? Это действие нельзя отменить.</p>
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">Удалить</button>
+                        <a href="{% url 'orders_list' %}" class="btn btn-secondary ml-2">Отмена</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,6 +1,6 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
-from .models import Product, Order, Client
+from .models import Product, Order, Client, OrderItem
 import json
 from django.views.decorators.http import require_http_methods
 from django.core.serializers import serialize
@@ -10,6 +10,9 @@ from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from django.utils import timezone
+from django.contrib.auth.decorators import login_required
+from .forms import ClientForm, ProductForm, DeliveryForm, StockMovementForm, OrderForm, OrderItemForm, OrderEditForm, DeliveryItemFormSet
+from django.forms import modelformset_factory, inlineformset_factory
 
 # Create your views here.
 
@@ -54,7 +57,7 @@ def get_customer_orders(request, customer_id):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-@staff_member_required
+@login_required
 def order_report(request):
     # Получаем параметры фильтрации
     date_from = request.GET.get('date_from')
@@ -98,9 +101,9 @@ def order_report(request):
         'selected_client': client_id,
     }
 
-    return render(request, 'admin/core/order/report.html', context)
+    return render(request, 'order_report_user.html', context)
 
-@staff_member_required
+@login_required
 def export_order_report(request):
     # Получаем параметры фильтрации
     date_from = request.GET.get('date_from')
@@ -211,40 +214,193 @@ def stock_list(request):
 
 # --- CRUD заглушки для клиентов ---
 def client_add(request):
-    return HttpResponse('Заглушка: добавить клиента')
+    if request.method == 'POST':
+        form = ClientForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('clients_list')
+    else:
+        form = ClientForm()
+    return render(request, 'client_form.html', {'form': form, 'action': 'add'})
+
 def client_edit(request, client_id):
-    return HttpResponse(f'Заглушка: редактировать клиента {client_id}')
+    client = get_object_or_404(Client, id=client_id)
+    if request.method == 'POST':
+        form = ClientForm(request.POST, instance=client)
+        if form.is_valid():
+            form.save()
+            return redirect('clients_list')
+    else:
+        form = ClientForm(instance=client)
+    return render(request, 'client_form.html', {'form': form, 'action': 'edit', 'client': client})
+
 def client_delete(request, client_id):
-    return HttpResponse(f'Заглушка: удалить клиента {client_id}')
+    client = get_object_or_404(Client, id=client_id)
+    if request.method == 'POST':
+        client.delete()
+        return redirect('clients_list')
+    return render(request, 'client_confirm_delete.html', {'client': client})
 
 # --- CRUD заглушки для товаров ---
 def product_add(request):
-    return HttpResponse('Заглушка: добавить товар')
+    if request.method == 'POST':
+        form = ProductForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('products_list')
+    else:
+        form = ProductForm()
+    return render(request, 'product_form.html', {'form': form, 'action': 'add'})
+
 def product_edit(request, product_id):
-    return HttpResponse(f'Заглушка: редактировать товар {product_id}')
+    product = get_object_or_404(Product, id=product_id)
+    if request.method == 'POST':
+        form = ProductForm(request.POST, instance=product)
+        if form.is_valid():
+            form.save()
+            return redirect('products_list')
+    else:
+        form = ProductForm(instance=product)
+    return render(request, 'product_form.html', {'form': form, 'action': 'edit', 'product': product})
+
 def product_delete(request, product_id):
-    return HttpResponse(f'Заглушка: удалить товар {product_id}')
+    product = get_object_or_404(Product, id=product_id)
+    if request.method == 'POST':
+        product.delete()
+        return redirect('products_list')
+    return render(request, 'product_confirm_delete.html', {'product': product})
 
-# --- CRUD заглушки для заказов ---
+# --- CRUD для заказов ---
 def order_add(request):
-    return HttpResponse('Заглушка: добавить заказ')
+    OrderItemFormSet = inlineformset_factory(Order, OrderItem, form=OrderItemForm, extra=1, can_delete=True)
+    if request.method == 'POST':
+        form = OrderForm(request.POST)
+        formset = OrderItemFormSet(request.POST)
+        if form.is_valid() and formset.is_valid():
+            order = form.save(commit=False)
+            order.date = timezone.now().date()
+            order.created_by = request.user
+            order.save()
+            items = formset.save(commit=False)
+            for item in items:
+                item.order = order
+                item.save()
+            return redirect('orders_list')
+    else:
+        form = OrderForm()
+        formset = OrderItemFormSet()
+    return render(request, 'order_form.html', {'form': form, 'formset': formset, 'action': 'add'})
+
 def order_edit(request, order_id):
-    return HttpResponse(f'Заглушка: редактировать заказ {order_id}')
+    order = get_object_or_404(Order, id=order_id)
+    # Только изменение статуса, товары и клиент не редактируются
+    if request.method == 'POST':
+        form = OrderEditForm(request.POST, instance=order)
+        if form.is_valid():
+            form.save()
+            return redirect('orders_list')
+    else:
+        form = OrderEditForm(instance=order)
+    items = OrderItem.objects.filter(order=order)
+    return render(request, 'order_edit.html', {'order': order, 'items': items, 'form': form, 'action': 'edit'})
+
 def order_delete(request, order_id):
-    return HttpResponse(f'Заглушка: удалить заказ {order_id}')
+    order = get_object_or_404(Order, id=order_id)
+    if request.method == 'POST':
+        order.delete()
+        return redirect('orders_list')
+    return render(request, 'order_confirm_delete.html', {'order': order})
 
-# --- CRUD заглушки для доставок ---
+# --- CRUD для привозов ---
 def delivery_add(request):
-    return HttpResponse('Заглушка: добавить доставку')
-def delivery_edit(request, delivery_id):
-    return HttpResponse(f'Заглушка: редактировать доставку {delivery_id}')
-def delivery_delete(request, delivery_id):
-    return HttpResponse(f'Заглушка: удалить доставку {delivery_id}')
+    from .forms import DeliveryForm, DeliveryItemFormSet
+    if request.method == 'POST':
+        form = DeliveryForm(request.POST)
+        formset = DeliveryItemFormSet(request.POST)
+        if form.is_valid() and formset.is_valid():
+            delivery = form.save(commit=False)
+            delivery.created_by = request.user
+            delivery.save()
+            items = formset.save(commit=False)
+            for item in items:
+                item.delivery = delivery
+                item.save()
+            return redirect('deliveries_list')
+    else:
+        form = DeliveryForm()
+        formset = DeliveryItemFormSet()
+    return render(request, 'delivery_form.html', {'form': form, 'formset': formset, 'action': 'add'})
 
-# --- CRUD заглушки для склада ---
+def delivery_edit(request, delivery_id):
+    from .models import Delivery
+    from .forms import DeliveryForm, DeliveryItemFormSet
+    delivery = get_object_or_404(Delivery, id=delivery_id)
+    if request.method == 'POST':
+        form = DeliveryForm(request.POST, instance=delivery)
+        formset = DeliveryItemFormSet(request.POST, instance=delivery)
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+            return redirect('deliveries_list')
+    else:
+        form = DeliveryForm(instance=delivery)
+        formset = DeliveryItemFormSet(instance=delivery)
+    return render(request, 'delivery_form.html', {'form': form, 'formset': formset, 'action': 'edit', 'delivery': delivery})
+
+def delivery_delete(request, delivery_id):
+    from .models import Delivery
+    delivery = get_object_or_404(Delivery, id=delivery_id)
+    if request.method == 'POST':
+        delivery.delete()
+        return redirect('deliveries_list')
+    return render(request, 'delivery_confirm_delete.html', {'delivery': delivery})
+
+# --- CRUD для движений товаров ---
 def stock_add(request):
-    return HttpResponse('Заглушка: добавить движение')
+    if request.method == 'POST':
+        form = StockMovementForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('stock_list')
+    else:
+        form = StockMovementForm()
+    return render(request, 'stock_form.html', {'form': form, 'action': 'add'})
+
 def stock_edit(request, stock_id):
-    return HttpResponse(f'Заглушка: редактировать движение {stock_id}')
+    from .models import StockMovement
+    stock = get_object_or_404(StockMovement, id=stock_id)
+    if request.method == 'POST':
+        form = StockMovementForm(request.POST, instance=stock)
+        if form.is_valid():
+            form.save()
+            return redirect('stock_list')
+    else:
+        form = StockMovementForm(instance=stock)
+    return render(request, 'stock_form.html', {'form': form, 'action': 'edit', 'stock': stock})
+
 def stock_delete(request, stock_id):
-    return HttpResponse(f'Заглушка: удалить движение {stock_id}')
+    from .models import StockMovement
+    stock = get_object_or_404(StockMovement, id=stock_id)
+    if request.method == 'POST':
+        stock.delete()
+        return redirect('stock_list')
+    return render(request, 'stock_confirm_delete.html', {'stock': stock})
+
+@login_required
+def main_page(request):
+    user = request.user
+    role = 'user'
+    if user.is_superuser or user.groups.filter(name='Администраторы').exists():
+        role = 'admin'
+    elif user.groups.filter(name='Менеджеры').exists():
+        role = 'manager'
+    elif user.groups.filter(name='Кладовщики').exists():
+        role = 'warehouse'
+    return render(request, 'index.html', {'role': role})
+
+def order_item_delete(request, item_id):
+    item = get_object_or_404(OrderItem, id=item_id)
+    order_id = item.order.id
+    if request.method == 'POST':
+        item.delete()
+    return redirect('order_edit', order_id=order_id)
