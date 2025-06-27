@@ -16,9 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import TemplateView
 from . import admin as custom_admin  # импортируем наши настройки админки
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import views as auth_views
 
 urlpatterns = [
+    path('', login_required(TemplateView.as_view(template_name='index.html')), name='main'),
     path('core/', include('core.urls')),  # сначала обрабатываем URL-ы из приложения core
-    path('', admin.site.urls),  # потом админку
+    path('admin/', admin.site.urls),  # админка теперь по /admin/
+    path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(next_page='/login/'), name='logout'),
 ]

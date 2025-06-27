@@ -183,3 +183,68 @@ def export_order_report(request):
     
     wb.save(response)
     return response
+
+def clients_list(request):
+    from .models import Client
+    clients = Client.objects.all().order_by('-created_at')
+    return render(request, 'clients_list.html', {'clients': clients})
+
+def products_list(request):
+    from .models import Product
+    products = Product.objects.all().order_by('-created_at')
+    return render(request, 'products_list.html', {'products': products})
+
+def orders_list(request):
+    from .models import Order
+    orders = Order.objects.all().order_by('-created_at')
+    return render(request, 'orders_list.html', {'orders': orders})
+
+def deliveries_list(request):
+    from .models import Delivery
+    deliveries = Delivery.objects.all().order_by('-created_at')
+    return render(request, 'deliveries_list.html', {'deliveries': deliveries})
+
+def stock_list(request):
+    from .models import StockMovement
+    stock = StockMovement.objects.all().order_by('-date')
+    return render(request, 'stock_list.html', {'stock': stock})
+
+# --- CRUD заглушки для клиентов ---
+def client_add(request):
+    return HttpResponse('Заглушка: добавить клиента')
+def client_edit(request, client_id):
+    return HttpResponse(f'Заглушка: редактировать клиента {client_id}')
+def client_delete(request, client_id):
+    return HttpResponse(f'Заглушка: удалить клиента {client_id}')
+
+# --- CRUD заглушки для товаров ---
+def product_add(request):
+    return HttpResponse('Заглушка: добавить товар')
+def product_edit(request, product_id):
+    return HttpResponse(f'Заглушка: редактировать товар {product_id}')
+def product_delete(request, product_id):
+    return HttpResponse(f'Заглушка: удалить товар {product_id}')
+
+# --- CRUD заглушки для заказов ---
+def order_add(request):
+    return HttpResponse('Заглушка: добавить заказ')
+def order_edit(request, order_id):
+    return HttpResponse(f'Заглушка: редактировать заказ {order_id}')
+def order_delete(request, order_id):
+    return HttpResponse(f'Заглушка: удалить заказ {order_id}')
+
+# --- CRUD заглушки для доставок ---
+def delivery_add(request):
+    return HttpResponse('Заглушка: добавить доставку')
+def delivery_edit(request, delivery_id):
+    return HttpResponse(f'Заглушка: редактировать доставку {delivery_id}')
+def delivery_delete(request, delivery_id):
+    return HttpResponse(f'Заглушка: удалить доставку {delivery_id}')
+
+# --- CRUD заглушки для склада ---
+def stock_add(request):
+    return HttpResponse('Заглушка: добавить движение')
+def stock_edit(request, stock_id):
+    return HttpResponse(f'Заглушка: редактировать движение {stock_id}')
+def stock_delete(request, stock_id):
+    return HttpResponse(f'Заглушка: удалить движение {stock_id}')

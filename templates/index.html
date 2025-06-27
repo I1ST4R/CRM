@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="container py-5">
+        <div class="row mb-4">
+            <div class="col text-center">
+                <h1 class="display-4">CRM Главная</h1>
+                <p class="lead">Выберите раздел для работы с данными</p>
+            </div>
+        </div>
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="list-group shadow">
+                    <a href="/core/clients/" class="list-group-item list-group-item-action">Клиенты</a>
+                    <a href="/core/products/" class="list-group-item list-group-item-action">Продукты</a>
+                    <a href="/core/orders/" class="list-group-item list-group-item-action">Заказы</a>
+                    <a href="/core/deliveries/" class="list-group-item list-group-item-action">Доставки</a>
+                    <a href="/core/stock/" class="list-group-item list-group-item-action">Склад</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %} 
